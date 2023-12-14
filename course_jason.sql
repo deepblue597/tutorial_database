@@ -259,7 +259,219 @@ USE sql_hr ;
 SELECT e.employee_id , e.first_name , m.first_name AS manager
 FROM employees e 
 LEFT JOIN employees m 
-	ON e.reports_to = m.employee_id
+	ON e.reports_to = m.employee_id ; 
     
 -- using close 
+
+SELECT 
+	o.order_id ,
+    c.first_name , 
+    sh.name
+FROM orders o 
+JOIN customers c
+	USING(customer_id) -- when the name is the same on both sides
+LEFT JOIN shippers sh 
+	USING(shipper_id) ; 
+    
+SELECT * 
+FROM order_items oi 
+JOIN order_item_notes oin 
+	USING(order_id , product_id) ; 
+    
+-- query to select payments from paymetns tabe
+-- date client amount payment method 
+
+USE sql_invoicing  ; 
+
+SELECT p.date , c.name , p.amount , pm.name AS payment_method 
+FROM payments p
+JOIN clients C 
+	USING (client_id) 
+JOIN payment_methods pm 
+	ON p.payment_method = pm.payment_method_id  ; 
+    
+-- Natural join (not recommended) 
+
+USE sql_store ; 
+
+SELECT o.order_id , c.first_name 
+FROM orders o 
+NATURAL JOIN customers c ;  -- it will join them based in the same column (the code does it) 
+
+-- Cross JOIN -- 
+-- combine every record form the first table with every on the 2nd table 
+-- table of sizes (like small medium large) and a table of colors 
+
+SELECT c.first_name AS customer, p.name AS product 
+FROM customers c 
+CROSS JOIN products p  -- we dont have a condition 
+ORDER BY c.first_name ; 
+
+-- cross join between shippers and products 
+
+SELECT sh.name AS shipper , p.name AS product 
+FROM shippers sh 
+CROSS JOIN products p ; 
+
+-- Unions 
+-- for combining rows 
+
+SELECT order_id , order_date , 'Active' AS status 
+FROM orders  
+WHERE order_date >= '2019-01-01' 
+
+UNION
+
+SELECT order_id , order_date , 'Archived' AS status 
+FROM orders  
+WHERE order_date < '2019-01-01' ; 
+
+SELECT first_name
+FROM customers  
+UNION 
+SELECT name 
+FROM shippers ; 
+
+-- customer id , first name , points , type 
+-- <2000 bronze >2000 <3000 Silver >3000 Gold 
+
+SELECT customer_id , first_name , points , 'Bronze' as type 
+FROM customers 
+WHERE points < 2000  
+
+UNION 
+
+SELECT customer_id , first_name , points , 'Silver' as type 
+FROM customers 
+WHERE points BETWEEN 2000 AND 3000 
+
+UNION 
+
+SELECT customer_id , first_name , points , 'Gold' as type 
+FROM customers 
+WHERE points > 3000
+ORDER BY first_name ;   
+ 
+-- column attributes 
+
+-- insert row 
+
+INSERT INTO customers ( first_name , last_name , birth_date , address , city , state) 
+VALUES(
+		'Jason' , 
+        'Kakandris' , 
+        '1990-01-01' , 
+         'address 7' , 
+         'city', 
+         'CA'  
+         ) ; -- default for auto increment  
+         
+-- inserting multiple rows 
+
+INSERT INTO shippers ( name )
+VALUES ('Shipper1'), 
+	    ('Shipper2'), 
+        ('Shipper3') ; 
+
+
+-- execrcise  insert in products 
+
+INSERT INTO products 
+VALUES (DEFAULT , 'asparagus' , 10 , 7.34), 
+		(DEFAULT , 'pepper' , 5 , 3.14), 
+        (DEFAULT , 'pickle' , 7 , 2.34) ; 
+
+-- inserting hierarchical rows -- 
+-- order parent order items children baseically a 1:N relation 
+
+INSERT INTO orders ( customer_id , order_date , status)
+VALUES  ( 1 , '2019-01-02' , 1 ) ; 
+-- built in function 
+INSERT INTO order_items
+VALUES(LAST_INSERT_ID() , 1 , 1 , 2.95  ), 
+		(LAST_INSERT_ID() , 2 , 1 , 2.95  ) ; 
+-- new record 
+
+-- creating a copy of a table -- 
+-- not update the pk 
+CREATE TABLE orders_archived AS 
+SELECT * FROM orders ;
+
+INSERT INTO orders_archived
+SELECT * 
+FROM orders 
+WHERE order_date < '2019-01-01' ; 
+
+-- invoices 
+-- create a copy of the invoices into invoice archived not the client id but the client name 
+-- copy only the invoices that do have a payment date 
+
+USE sql_invoicing ;
+
+CREATE TABLE archived_invoices AS
+ SELECT i.invoice_id , i.number , i.invoice_total , i.payment_total , i.invoice_date  ,
+		i.due_date , i.payment_date , c.name  
+ FROM invoices i 
+ JOIN clients c 
+	USING (client_id)  
+WHERE i.payment_date IS NOT NULL ; 
+
+-- updating row -- 
+USE sql_invoicing ; 
+
+UPDATE invoices 
+SET payment_total = invoice_total * 0.5 , 
+	payment_date = due_date 
+WHERE invoice_id = 3 ; 
+
+-- update multiple rows -- 
+
+UPDATE invoices 
+SET payment_total = invoice_total * 0.5 , 
+	payment_date = due_date 
+WHERE client_id = 3 ;  -- safe update will haev an error  we go to edit --> preferences --> sql editor --> last checkbox 
+
+
+-- give the customers born bef 1990 50 extra points 
+
+USE sql_store ; 
+
+UPDATE customers  
+SET points = points + 50 
+WHERE birth_date < '1990-01-01' ; 
+
+-- Using subqueries in update 
+USE sql_invoicing ; 
+
+UPDATE invoices 
+SET payment_total = invoice_total * 0.5 , 
+	payment_date = due_date 
+WHERE client_id IN -- = IF 1  
+
+		( SELECT client_id  
+		FROM clients 
+		WHERE state IN ('CA' , 'NY') ) ; -- = if 1  
+
+-- ex
+-- update the comments for customers more than 3000 points 'gold customer' 
+
+USE sql_store ; 
+
+UPDATE orders  
+SET comments = 'gold customer' 
+WHERE customer_id IN 
+	( SELECT customer_id 
+	FROM customers  
+	WHERE points > 3000 ) ; 
+    
+-- delete rows 
+USE sql_invoicing ; 
+
+DELETE FROM invoices 
+WHERE client_id = ( 
+	SELECT client_id  
+	FROM clients 
+	WHERE name = 'Myworks' ) ; 
+    
+-- restoring the database 
 
